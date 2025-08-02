@@ -1,4 +1,4 @@
-# assignment11
+# assignment12
 
 ## My Github Repository
 ![GitHub Repo](qr_codes/QRCode_GitHubAssignment12.png "My QR Code Link")
