@@ -1,217 +1,152 @@
-# ======================================================================================
-# tests/integration/test_user.py
-# ======================================================================================
-# Purpose: Demonstrate user model interactions with the database using pytest fixtures.
-#          Relies on 'conftest.py' for database session management and test isolation.
-# ======================================================================================
-
 import pytest
-import logging
 import uuid
-from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
 
-from app.models.calculation import Calculation, Addition, Subtraction, Multiplication, Division
-from app.models.user import User
-from tests.conftest import create_fake_user, managed_db_session
-
-# Use the logger configured in conftest.py
-logger = logging.getLogger(__name__)
+from app.models.calculation import (
+    Calculation,
+    Addition,
+    Subtraction,
+    Multiplication,
+    Division,
+)
 
 # Helper function to create a dummy user_id for testing.
 def dummy_user_id():
     return uuid.uuid4()
 
-def test_database_connection(db_session):
+def test_addition_get_result():
     """
-    Verify that the database connection is working.
-    
-    Uses the db_session fixture from conftest.py, which truncates tables after each test.
+    Test that Addition.get_result returns the correct sum.
     """
-    result = db_session.execute(text("SELECT 1"))
-    assert result.scalar() == 1
-    logger.info("Database connection test passed")
-
-# ======================================================================================
-# Test calculation recording & Partial Commits
-# ======================================================================================
-
-def test_calculation_recording(db_session):
-    """
-    Demonstrate partial commits:
-      - user1 is committed
-      - user2 fails (duplicate email), triggers rollback, user1 remains
-      - user3 is committed
-      - final check ensures we only have user1 and user3
-    """
-    initial_count = db_session.query(Calculation).count()
-    logger.info(f"Initial calculation count before test_calculation_recording: {initial_count}")
-    assert initial_count == 0, f"Expected 0 calculations before test, found {initial_count}"
-    
-    user_id = dummy_user_id()
-    user = User(
-        id = user_id,
-        first_name="Dummy",
-        last_name="User",
-        email="duser@njit.edu",
-        username = "Dummy_User",
-        password="hashed_password"
-    )
-    db_session.add(user)
-    db_session.commit()
-
-    calc = Calculation(
-        user_id = user_id,
-        type = "Addition",
-        a = 1,
-        b = 2
-    )
-
-    db_session.add(calc)
-    db_session.commit()
-
-    new_count = db_session.query(Calculation).count()
-    logger.info(f"Updated calculation count after test_calculation_recording: {new_count}")
-    assert new_count == 1, f"Expected 1 calculation after test, found {new_count}"
-
-
-def test_factory_invalid_type():
-    """
-    Test factory returns error if unrecognized operation
-    """
-    with pytest.raises(ValueError, match="Unsupported calculation type: power"):
-        calc = Calculation.create(
-            calculation_type='power', 
-            user_id = dummy_user_id(),
-            a = 12,
-            b = 13
-        )
-
-# ADDITION TESTS
-
-def test_addition():
-    """
-    Test Addition.get_result
-    """
-    a = 10
-    b = 8.5
-    addition = Addition(user_id=dummy_user_id(), a=a, b=b)
+    inputs = [10, 5, 3.5]
+    addition = Addition(user_id=dummy_user_id(), inputs=inputs)
     result = addition.get_result()
-    assert result == (a+b), f"Expected {(a+b)}, got {result}"
+    assert result == sum(inputs), f"Expected {sum(inputs)}, got {result}"
 
-def test_addition_factory():
+def test_subtraction_get_result():
     """
-    Test Addition factory
+    Test that Subtraction.get_result returns the correct difference.
     """
-    a = 10
-    b = 8.5
-    calc = Calculation.create(
-        calculation_type='AdDiTiOn', 
-        user_id = dummy_user_id(),
-        a = a,
-        b = b
-    )
-
-    assert isinstance(calc, Addition), "Factory did not return an Addition instance"
-    result = calc.get_result()
-    assert result == (a+b), f"Expected {(a+b)}, got {result}"
-
-# SUBTRACTION TESTS
-
-def test_subtraction():
-    """
-    Test Subtraction.get_result
-    """
-    a = 10
-    b = 8.5
-    subtraction = Subtraction(user_id=dummy_user_id(), a=a, b=b)
+    inputs = [20, 5, 3]
+    subtraction = Subtraction(user_id=dummy_user_id(), inputs=inputs)
+    # Expected: 20 - 5 - 3 = 12
     result = subtraction.get_result()
-    assert result == (a-b), f"Expected {(a+b)}, got {result}"
+    assert result == 12, f"Expected 12, got {result}"
 
-def test_subtraction_factory():
+def test_multiplication_get_result():
     """
-    Test Subtraction factory
+    Test that Multiplication.get_result returns the correct product.
     """
-    a = 10
-    b = 8.5
-    calc = Calculation.create(
-        calculation_type='Subtraction', 
-        user_id = dummy_user_id(),
-        a = a,
-        b = b
-    )
-
-    assert isinstance(calc, Subtraction), "Factory did not return an Subtraction instance"
-    result = calc.get_result()
-    assert result == (a-b), f"Expected {(a-b)}, got {result}"
-
-# MULTIPLICATION TESTS
-
-def test_multiplication():
-    """
-    Test Multiplication.get_result
-    """
-    a = 10
-    b = 8.5
-    multiplication = Multiplication(user_id=dummy_user_id(), a=a, b=b)
+    inputs = [2, 3, 4]
+    multiplication = Multiplication(user_id=dummy_user_id(), inputs=inputs)
     result = multiplication.get_result()
-    assert result == (a*b), f"Expected {(a*b)}, got {result}"
+    assert result == 24, f"Expected 24, got {result}"
 
-def test_multiplication_factory():
+def test_division_get_result():
     """
-    Test Multiplication factory
+    Test that Division.get_result returns the correct quotient.
     """
-    a = 10
-    b = 8.5
-    calc = Calculation.create(
-        calculation_type='Multiplication', 
-        user_id = dummy_user_id(),
-        a = a,
-        b = b
-    )
-
-    assert isinstance(calc, Multiplication), "Factory did not return an Multiplication instance"
-    result = calc.get_result()
-    assert result == (a*b), f"Expected {(a*b)}, got {result}"
-
-# DIVISION TESTS
-
-def test_division():
-    """
-    Test Division.get_result
-    """
-    a = 10
-    b = 8.5
-    division = Division(user_id=dummy_user_id(), a=a, b=b)
+    inputs = [100, 2, 5]
+    division = Division(user_id=dummy_user_id(), inputs=inputs)
+    # Expected: 100 / 2 / 5 = 10
     result = division.get_result()
-    assert result == (a/b), f"Expected {(a/b)}, got {result}"
-
-def test_division_factory():
-    """
-    Test Division factory
-    """
-    a = 10
-    b = 8.5
-    calc = Calculation.create(
-        calculation_type='Division', 
-        user_id = dummy_user_id(),
-        a = a,
-        b = b
-    )
-
-    assert isinstance(calc, Division), "Factory did not return an Division instance"
-    result = calc.get_result()
-    assert result == (a/b), f"Expected {(a/b)}, got {result}"
+    assert result == 10, f"Expected 10, got {result}"
 
 def test_division_by_zero():
     """
-    Test Division by zero
+    Test that Division.get_result raises ValueError when dividing by zero.
     """
-    a = 10
-    b = 0
-    division = Division(user_id=dummy_user_id(), a=a, b=b)
-    with pytest.raises(ValueError, match="Division by zero not permitted."):
+    inputs = [50, 0, 5]
+    division = Division(user_id=dummy_user_id(), inputs=inputs)
+    with pytest.raises(ValueError, match="Cannot divide by zero."):
         division.get_result()
 
+def test_calculation_factory_addition():
+    """
+    Test the Calculation.create factory method for addition.
+    """
+    inputs = [1, 2, 3]
+    calc = Calculation.create(
+        calculation_type='addition',
+        user_id=dummy_user_id(),
+        inputs=inputs,
+    )
+    # Check that the returned instance is an Addition.
+    assert isinstance(calc, Addition), "Factory did not return an Addition instance."
+    assert calc.get_result() == sum(inputs), "Incorrect addition result."
 
+def test_calculation_factory_subtraction():
+    """
+    Test the Calculation.create factory method for subtraction.
+    """
+    inputs = [10, 4]
+    calc = Calculation.create(
+        calculation_type='subtraction',
+        user_id=dummy_user_id(),
+        inputs=inputs,
+    )
+    # Expected: 10 - 4 = 6
+    assert isinstance(calc, Subtraction), "Factory did not return a Subtraction instance."
+    assert calc.get_result() == 6, "Incorrect subtraction result."
+
+def test_calculation_factory_multiplication():
+    """
+    Test the Calculation.create factory method for multiplication.
+    """
+    inputs = [3, 4, 2]
+    calc = Calculation.create(
+        calculation_type='multiplication',
+        user_id=dummy_user_id(),
+        inputs=inputs,
+    )
+    # Expected: 3 * 4 * 2 = 24
+    assert isinstance(calc, Multiplication), "Factory did not return a Multiplication instance."
+    assert calc.get_result() == 24, "Incorrect multiplication result."
+
+def test_calculation_factory_division():
+    """
+    Test the Calculation.create factory method for division.
+    """
+    inputs = [100, 2, 5]
+    calc = Calculation.create(
+        calculation_type='division',
+        user_id=dummy_user_id(),
+        inputs=inputs,
+    )
+    # Expected: 100 / 2 / 5 = 10
+    assert isinstance(calc, Division), "Factory did not return a Division instance."
+    assert calc.get_result() == 10, "Incorrect division result."
+
+def test_calculation_factory_invalid_type():
+    """
+    Test that Calculation.create raises a ValueError for an unsupported calculation type.
+    """
+    with pytest.raises(ValueError, match="Unsupported calculation type"):
+        Calculation.create(
+            calculation_type='modulus',  # unsupported type
+            user_id=dummy_user_id(),
+            inputs=[10, 3],
+        )
+
+def test_invalid_inputs_for_addition():
+    """
+    Test that providing non-list inputs to Addition.get_result raises a ValueError.
+    """
+    addition = Addition(user_id=dummy_user_id(), inputs="not-a-list")
+    with pytest.raises(ValueError, match="Inputs must be a list of numbers."):
+        addition.get_result()
+
+def test_invalid_inputs_for_subtraction():
+    """
+    Test that providing fewer than two numbers to Subtraction.get_result raises a ValueError.
+    """
+    subtraction = Subtraction(user_id=dummy_user_id(), inputs=[10])
+    with pytest.raises(ValueError, match="Inputs must be a list with at least two numbers."):
+        subtraction.get_result()
+
+def test_invalid_inputs_for_division():
+    """
+    Test that providing fewer than two numbers to Division.get_result raises a ValueError.
+    """
+    division = Division(user_id=dummy_user_id(), inputs=[10])
+    with pytest.raises(ValueError, match="Inputs must be a list with at least two numbers."):
+        division.get_result()

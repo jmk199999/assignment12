@@ -1,82 +1,103 @@
-from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
 from enum import Enum
+from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
+from typing import List, Optional
 from uuid import UUID
-
+from datetime import datetime
 
 class CalculationType(str, Enum):
-    """ For Validating Type """
-    ADD = "add"
-    SUBTRACT = "subtract"
-    MULTIPLY = "multiply"
-    DIVIDE = "divide"
+    """Valid calculation types"""
+    ADDITION = "addition"
+    SUBTRACTION = "subtraction"
+    MULTIPLICATION = "multiplication"
+    DIVISION = "division"
 
 class CalculationBase(BaseModel):
-    """Base calculation schema with common fields"""
-    type: str = Field(max_length=50, example="Add")
-    a: float = Field(example=3)
-    b: float = Field(example=4)
-
-    model_config = ConfigDict(from_attributes=True)
+    type: CalculationType = Field(
+        ...,
+        description="Type of calculation (addition, subtraction, multiplication, division)",
+        example="addition"
+    )
+    inputs: List[float] = Field(
+        ...,
+        description="List of numeric inputs for the calculation",
+        example=[10.5, 3, 2],
+        min_items=2
+    )
 
     @field_validator("type", mode="before")
     @classmethod
-    def check_type_is_valid(cls, v):
-        allowed = {i.value for i in CalculationType}
-        if not isinstance(v, str):
-            raise ValueError("Type must be a string")
-        if v.lower() not in allowed:
-            raise ValueError("Type must be 'add', 'subtract', 'multiply' or 'divide'")
+    def validate_type(cls, v):
+        allowed = {e.value for e in CalculationType}
+        # Ensure v is a string and check (in lowercase) if it's allowed.
+        if not isinstance(v, str) or v.lower() not in allowed:
+            raise ValueError(f"Type must be one of: {', '.join(sorted(allowed))}")
         return v.lower()
 
-    @field_validator("a", mode="before")
+    @field_validator("inputs", mode="before")
     @classmethod
-    def check_a_is_number(cls, v):
-        if not isinstance(v, int) and not isinstance(v, float):
-            raise ValueError("First value should be a number")
+    def check_inputs_is_list(cls, v):
+        if not isinstance(v, list):
+            raise ValueError("Input should be a valid list")
         return v
 
-    @field_validator("b", mode="before")
-    @classmethod
-    def check_b_is_number(cls, v):
-        if not isinstance(v, int) and not isinstance(v, float):
-            raise ValueError("Second value should be a number")
-        return v
-
-    @model_validator(mode="after")
-    def check_div_by_zero(self) -> "CalculationBase":
-        if self.type == CalculationType.DIVIDE and self.b == 0:
-            raise ValueError("Cannot divide by zero")
+    @model_validator(mode='after')
+    def validate_inputs(self) -> "CalculationBase":
+        """Validate inputs based on calculation type"""
+        if len(self.inputs) < 2:
+            raise ValueError("At least two numbers are required for calculation")
+        if self.type == CalculationType.DIVISION:
+            # Prevent division by zero (skip the first value as numerator)
+            if any(x == 0 for x in self.inputs[1:]):
+                raise ValueError("Cannot divide by zero")
         return self
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "examples": [
+                {"type": "addition", "inputs": [10.5, 3, 2]},
+                {"type": "division", "inputs": [100, 2]}
+            ]
+        }
+    )
 
 class CalculationCreate(CalculationBase):
     """Schema for creating a new Calculation"""
+    user_id: UUID = Field(
+        ...,
+        description="UUID of the user who owns this calculation",
+        example="123e4567-e89b-12d3-a456-426614174000"
+    )
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "type": "Add",
-                "a": 3,
-                "b": 2
+                "type": "addition",
+                "inputs": [10.5, 3, 2],
+                "user_id": "123e4567-e89b-12d3-a456-426614174000"
             }
         }
     )
 
 class CalculationUpdate(BaseModel):
     """Schema for updating an existing Calculation"""
-    a: float = Field(
+    inputs: Optional[List[float]] = Field(
         None,
-        description="Updated First value for caluclation",
-        example=2
+        description="Updated list of numeric inputs for the calculation",
+        example=[42, 7],
+        min_items=2
     )
 
-    b: float = Field(
-        None,
-        description="Updated Second value for caluclation",
-        example=2
-    )
+    @model_validator(mode='after')
+    def validate_inputs(self) -> "CalculationUpdate":
+        """Validate the inputs if they are being updated"""
+        if self.inputs is not None and len(self.inputs) < 2:
+            raise ValueError("At least two numbers are required for calculation")
+        return self
 
     model_config = ConfigDict(
         from_attributes=True,
-        json_schema_extra={"example": {"a": 4, "b": 3}}
+        json_schema_extra={"example": {"inputs": [42, 7]}}
     )
 
 class CalculationResponse(CalculationBase):
@@ -86,17 +107,17 @@ class CalculationResponse(CalculationBase):
         description="Unique UUID of the calculation",
         example="123e4567-e89b-12d3-a456-426614174999"
     )
-    type: str = Field(
+    user_id: UUID = Field(
         ...,
-        description="Type of calculation",
-        example="Add"
+        description="UUID of the user who owns this calculation",
+        example="123e4567-e89b-12d3-a456-426614174000"
     )
-    a: float = Field(..., description="First Value", example=9)
-    b: float = Field(..., description="Second value", example=8)
+    created_at: datetime = Field(..., description="Time when the calculation was created")
+    updated_at: datetime = Field(..., description="Time when the calculation was last updated")
     result: float = Field(
         ...,
         description="Result of the calculation",
-        example=17
+        example=15.5
     )
 
     model_config = ConfigDict(
@@ -104,10 +125,12 @@ class CalculationResponse(CalculationBase):
         json_schema_extra={
             "example": {
                 "id": "123e4567-e89b-12d3-a456-426614174999",
-                "type": "add",
-                "a": 9,
-                "b": 8,
-                "result": 17,
+                "user_id": "123e4567-e89b-12d3-a456-426614174000",
+                "type": "addition",
+                "inputs": [10.5, 3, 2],
+                "result": 15.5,
+                "created_at": "2025-01-01T00:00:00",
+                "updated_at": "2025-01-01T00:00:00"
             }
         }
     )

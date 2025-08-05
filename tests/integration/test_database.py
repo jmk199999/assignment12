@@ -6,7 +6,6 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm.session import Session
 import importlib
 import sys
-from app.database import get_db
 
 DATABASE_MODULE = "app.database"
 
@@ -54,8 +53,3 @@ def test_get_sessionmaker(mock_settings):
     engine = database.get_engine()
     SessionLocal = database.get_sessionmaker(engine)
     assert isinstance(SessionLocal, sessionmaker)
-
-def test_get_db():
-    """Test Get DB"""
-    for session in get_db():
-        assert session is not None

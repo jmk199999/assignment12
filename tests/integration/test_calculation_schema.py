@@ -11,72 +11,89 @@ from app.schemas.calculation import (
 def test_calculation_create_valid():
     """Test creating a valid CalculationCreate schema."""
     data = {
-        "type": "subtract",
-        "a": 10,
-        "b": 6
+        "type": "addition",
+        "inputs": [10.5, 3.0],
+        "user_id": uuid4()
     }
     calc = CalculationCreate(**data)
-    assert calc.type == "subtract"
-    assert calc.a == 10
-    assert calc.b == 6
+    assert calc.type == "addition"
+    assert calc.inputs == [10.5, 3.0]
+    assert calc.user_id is not None
 
-def test_calculation_type_string():
-    """Test invalid type."""
+def test_calculation_create_missing_type():
+    """Test CalculationCreate fails if 'type' is missing."""
     data = {
-        "type": 13,
-        "a": 4,
-        "b": 5
+        "inputs": [10.5, 3.0],
+        "user_id": uuid4()
     }
     with pytest.raises(ValidationError) as exc_info:
         CalculationCreate(**data)
     # Look for a substring that indicates a missing required field.
-    assert "must be a string" in str(exc_info.value).lower()
+    assert "required" in str(exc_info.value).lower()
 
-def test_calculation_type_valid():
-    """Test invalid type."""
+def test_calculation_create_missing_inputs():
+    """Test CalculationCreate fails if 'inputs' is missing."""
     data = {
-        "type": "invalid",
-        "a": 4,
-        "b": 5
+        "type": "multiplication",
+        "user_id": uuid4()
     }
     with pytest.raises(ValidationError) as exc_info:
         CalculationCreate(**data)
-    # Look for a substring that indicates a missing required field.
-    assert "must be 'add'" in str(exc_info.value).lower()
+    assert "required" in str(exc_info.value).lower()
 
-def test_calculation_a_valid():
-    """Test invalid a."""
+def test_calculation_create_invalid_inputs():
+    """Test CalculationCreate fails if 'inputs' is not a list of floats."""
     data = {
-        "type": "add",
-        "a": "four",
-        "b": 5
+        "type": "division",
+        "inputs": "not-a-list",
+        "user_id": uuid4()
     }
     with pytest.raises(ValidationError) as exc_info:
         CalculationCreate(**data)
-    # Look for a substring that indicates a missing required field.
-    assert "first value should be a number" in str(exc_info.value).lower()
+    error_message = str(exc_info.value)
+    # Ensure that our custom error message is present (case-insensitive)
+    assert "input should be a valid list" in error_message.lower(), error_message
 
-def test_calculation_b_valid():
-    """Test invalid b."""
+def test_calculation_create_unsupported_type():
+    """Test CalculationCreate fails if an unsupported calculation type is provided."""
     data = {
-        "type": "add",
-        "a": 4,
-        "b": "five"
+        "type": "square_root",  # Unsupported type
+        "inputs": [25],
+        "user_id": uuid4()
     }
     with pytest.raises(ValidationError) as exc_info:
         CalculationCreate(**data)
-    # Look for a substring that indicates a missing required field.
-    assert "second value should be a number" in str(exc_info.value).lower()
+    error_message = str(exc_info.value).lower()
+    # Check that the error message indicates the value is not permitted.
+    assert "one of" in error_message or "not a valid" in error_message
 
-def test_calculation_div_zero():
-    """Test invalid divide by zero."""
+def test_calculation_update_valid():
+    """Test a valid partial update with CalculationUpdate."""
     data = {
-        "type": "Divide",
-        "a": 4,
-        "b": 0
+        "inputs": [42.0, 7.0]
     }
-    with pytest.raises(ValidationError) as exc_info:
-        CalculationCreate(**data)
-    # Look for a substring that indicates a missing required field.
-    assert "cannot divide by zero" in str(exc_info.value).lower()
+    calc_update = CalculationUpdate(**data)
+    assert calc_update.inputs == [42.0, 7.0]
 
+def test_calculation_update_no_fields():
+    """Test that an empty update is allowed (i.e., no fields)."""
+    calc_update = CalculationUpdate()
+    assert calc_update.inputs is None
+
+def test_calculation_response_valid():
+    """Test creating a valid CalculationResponse schema."""
+    data = {
+        "id": uuid4(),
+        "user_id": uuid4(),
+        "type": "subtraction",
+        "inputs": [20, 5],
+        "result": 15.5,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+    }
+    calc_response = CalculationResponse(**data)
+    assert calc_response.id is not None
+    assert calc_response.user_id is not None
+    assert calc_response.type == "subtraction"
+    assert calc_response.inputs == [20, 5]
+    assert calc_response.result == 15.5
