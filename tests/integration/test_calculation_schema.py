@@ -20,6 +20,7 @@ def test_calculation_create_valid():
     assert calc.inputs == [10.5, 3.0]
     assert calc.user_id is not None
 
+
 def test_calculation_create_missing_type():
     """Test CalculationCreate fails if 'type' is missing."""
     data = {

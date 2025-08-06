@@ -134,6 +134,66 @@ def test_register_user_password_mismatch(client_fixture):
     assert response.status_code == 422
     assert "Value error, Passwords do not match" in response.json()["detail"][0]["msg"]
 
+def test_register_user_password_noupper(client_fixture):
+    user_data = {
+        "username": "loginuser",
+        "email": "login@example.com",
+        "password": "nouppercase",
+        "confirm_password": "nouppercase",
+        "first_name": "New",
+        "last_name": "User",
+    }
+    response = client_fixture.post("/auth/register", json=user_data)
+    # The test expects a 400 from the route, but Pydantic returns 422
+    # if it has an early validation error. Let's adjust to be more accurate.
+    assert response.status_code == 422
+    assert "Value error, Password must contain at least one uppercase letter" in response.json()["detail"][0]["msg"]
+
+def test_register_user_password_nolower(client_fixture):
+    user_data = {
+        "username": "loginuser",
+        "email": "login@example.com",
+        "password": "NOLOWERCASE",
+        "confirm_password": "NOLOWERCASE",
+        "first_name": "New",
+        "last_name": "User",
+    }
+    response = client_fixture.post("/auth/register", json=user_data)
+    # The test expects a 400 from the route, but Pydantic returns 422
+    # if it has an early validation error. Let's adjust to be more accurate.
+    assert response.status_code == 422
+    assert "Value error, Password must contain at least one lowercase letter" in response.json()["detail"][0]["msg"]
+
+def test_register_user_password_nodigit(client_fixture):
+    user_data = {
+        "username": "loginuser",
+        "email": "login@example.com",
+        "password": "NoDigits!!!",
+        "confirm_password": "NoDigits!!!",
+        "first_name": "New",
+        "last_name": "User",
+    }
+    response = client_fixture.post("/auth/register", json=user_data)
+    # The test expects a 400 from the route, but Pydantic returns 422
+    # if it has an early validation error. Let's adjust to be more accurate.
+    assert response.status_code == 422
+    assert "Value error, Password must contain at least one digit" in response.json()["detail"][0]["msg"]
+
+def test_register_user_password_nospecial(client_fixture):
+    user_data = {
+        "username": "loginuser",
+        "email": "login@example.com",
+        "password": "0SpecialChars",
+        "confirm_password": "0SpecialChars",
+        "first_name": "New",
+        "last_name": "User",
+    }
+    response = client_fixture.post("/auth/register", json=user_data)
+    # The test expects a 400 from the route, but Pydantic returns 422
+    # if it has an early validation error. Let's adjust to be more accurate.
+    assert response.status_code == 422
+    assert "Value error, Password must contain at least one special character" in response.json()["detail"][0]["msg"]
+
 
 # ... (Continue with other tests, passing client_fixture to each one)
 

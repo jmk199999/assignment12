@@ -89,7 +89,6 @@ def test_user_create_invalid_password():
     with pytest.raises(ValidationError):
         UserCreate(**data)
 
-
 def test_user_login_valid():
     """Test UserLogin with valid data."""
     data = {"username": "johndoe", "password": "SecurePass123"}
